@@ -1,0 +1,84 @@
+# Fonte única de verdade das regras de negócio
+validations:
+  age_rule:
+    type: "int"
+    restrictions:
+      min: 18
+      max: 120
+
+pact:
+  pvp_version: "1.0"
+  policy_engine_id: "pact_reference_v0.2_eac"
+  signature_scheme: "ed25519"
+  hash_scheme: "sha256"
+  expiry_seconds: 300
+  mandate:
+    mandate_id: "nexusai_infra_agent_7_v2"
+    pdpp_version: "0.1"
+    principal_id: "nexusai_corp"
+    agent_id: "did:pact:nexusai:infra-agent-7"
+    issued_at: "2026-03-01T09:00:00+00:00"
+    checks:
+      - check_id: "daily_spend_cap"
+        rule:
+          all_of:
+            - expr:
+                add:
+                  - "inputs.amount_today_cents"
+                  - "transaction.amount_cents"
+              op: "lte"
+              value: 100000
+      - check_id: "per_transaction_cap"
+        rule:
+          field: "transaction.amount_cents"
+          op: "lte"
+          value: 75000
+      - check_id: "vendor_allowlist"
+        rule:
+          field: "transaction.vendor_id"
+          op: "in"
+          value:
+            - "vendor_computegrid_001"
+            - "vendor_aws_001"
+            - "vendor_gcp_001"
+      - check_id: "category_constraint"
+        rule:
+          field: "transaction.category"
+          op: "eq"
+          value: "cloud_infrastructure"
+      - check_id: "verified_vendor_required"
+        rule:
+          field: "transaction.vendor_tier"
+          op: "eq"
+          value: "pact_verified"
+  scenarios:
+    - label: "Valid purchase within policy"
+      request_id: "req_aaa111bbb222ccc333"
+      transaction:
+        vendor_id: "vendor_computegrid_001"
+        vendor_tier: "pact_verified"
+        amount_cents: 31200
+        category: "cloud_infrastructure"
+        purpose: "GPU expansion — ML job nexusai-train-0291"
+      inputs:
+        amount_today_cents: 68800
+    - label: "Daily cap exceeded"
+      request_id: "req_ddd444eee555fff666"
+      transaction:
+        vendor_id: "vendor_computegrid_001"
+        vendor_tier: "pact_verified"
+        amount_cents: 31200
+        category: "cloud_infrastructure"
+        purpose: "GPU expansion — second job"
+      inputs:
+        amount_today_cents: 90000
+    - label: "Vendor not on allowlist"
+      request_id: "req_ggg777hhh888iii999"
+      transaction:
+        vendor_id: "vendor_unknown_xyz"
+        vendor_tier: "pact_verified"
+        amount_cents: 5000
+        category: "cloud_infrastructure"
+        purpose: "Experimental compute provider"
+      inputs:
+        amount_today_cents: 10000
